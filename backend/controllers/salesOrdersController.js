@@ -2,12 +2,102 @@ const SalesOrder = require('../models/SalesOrder');
 const Product = require('../models/Product');
 const Customer = require('../models/Customer');
 const Counter = require('../models/Counter');
+const CustomerInvoice = require('../models/CustomerInvoice');
+const CoA = require('../models/CoA');
 
 function parsePagination(req) {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
   const skip = (page - 1) * limit;
   return { page, limit, skip };
+}
+
+// GET /api/sales-orders/:id/print
+exports.printSO = async (req, res, next) => {
+  try {
+    const so = await SalesOrder.findById(req.params.id)
+      .populate('customer', 'name email mobile')
+      .populate('items.product', 'name hsnCode salesPrice');
+    if (!so) return res.status(404).json({ message: 'Sales Order not found' });
+
+    const payload = {
+      soNumber: so.soNumber,
+      soDate: so.soDate,
+      reference: so.reference || null,
+      status: so.status,
+      customer: so.customer,
+      items: so.items.map(l => ({
+        product: l.product,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        taxRate: l.taxRate,
+        lineUntaxed: l.unitPrice * l.quantity,
+        lineTax: (l.unitPrice * l.quantity * (l.taxRate || 0)) / 100,
+        lineTotal: l.unitPrice * l.quantity * (1 + (l.taxRate || 0)/100),
+      })),
+      totals: {
+        untaxed: so.totalUntaxedAmount,
+        tax: so.totalTaxAmount,
+        total: so.totalAmount,
+      },
+    };
+    res.json({ success: true, print: payload });
+  } catch (err) { next(err); }
+};
+
+// POST /api/sales-orders/:id/create-invoice
+exports.createInvoiceFromSO = async (req, res, next) => {
+  try {
+    const so = await SalesOrder.findById(req.params.id).populate('items.product', 'hsnCode salesPrice');
+    if (!so) return res.status(404).json({ message: 'Sales Order not found' });
+    if (so.status !== 'confirmed') return res.status(400).json({ message: 'Only confirmed SO can be invoiced' });
+
+    const defaultIncomeAcc = await resolveDefaultIncomeAccount();
+    const items = so.items.map(line => ({
+      product: line.product?._id || line.product,
+      hsnCode: line.product?.hsnCode || null,
+      account: defaultIncomeAcc,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      taxRate: line.taxRate || 0,
+    }));
+
+    const invoiceNumber = await getNextInvoiceNumber();
+    const invoiceDate = req.body.invoiceDate ? new Date(req.body.invoiceDate) : new Date();
+    const dueDate = req.body.dueDate ? new Date(req.body.dueDate) : new Date(Date.now() + 30*24*60*60*1000);
+
+    const inv = await CustomerInvoice.create({
+      invoiceNumber,
+      customer: so.customer,
+      salesOrder: so._id,
+      reference: req.body.reference || null,
+      invoiceDate,
+      dueDate,
+      items,
+      status: 'confirmed',
+    });
+
+    res.status(201).json({ success: true, item: inv });
+  } catch (err) { next(err); }
+};
+
+// Helpers for SO -> Invoice
+async function resolveDefaultIncomeAccount() {
+  let acc = await CoA.findOne({ accountName: /Sales Income/i });
+  if (!acc) acc = await CoA.findOne({ type: 'Income' });
+  return acc ? acc._id : null;
+}
+
+async function getNextInvoiceNumber() {
+  const year = new Date().getFullYear();
+  const key = `ci-${year}`;
+  const doc = await Counter.findOneAndUpdate(
+    { key },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true }
+  );
+  const seq = doc.seq || 1;
+  return `INV/${year}/${String(seq).padStart(4, '0')}`;
 }
 
 async function getNextSONumber() {

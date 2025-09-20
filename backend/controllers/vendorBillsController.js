@@ -124,6 +124,100 @@ exports.updateBill = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// GET /api/vendor-bills/:id/print
+exports.printBill = async (req, res, next) => {
+  try {
+    const bill = await VendorBill.findById(req.params.id)
+      .populate('vendor', 'name email mobile')
+      .populate('items.product', 'name hsnCode')
+      .populate('items.account', 'accountName code type');
+    if (!bill) return res.status(404).json({ message: 'Vendor Bill not found' });
+
+    const items = bill.items.map(l => ({
+      product: l.product,
+      account: l.account,
+      hsnCode: l.hsnCode,
+      quantity: l.quantity,
+      unitPrice: l.unitPrice,
+      taxRate: l.taxRate || 0,
+      lineUntaxed: l.lineUntaxed ?? (l.unitPrice * l.quantity),
+      lineTax: l.lineTax ?? ((l.unitPrice * l.quantity * (l.taxRate || 0)) / 100),
+      lineTotal: l.lineTotal ?? (l.unitPrice * l.quantity * (1 + (l.taxRate || 0)/100)),
+    }));
+
+    const payload = {
+      billNumber: bill.billNumber,
+      invoiceDate: bill.invoiceDate,
+      dueDate: bill.dueDate,
+      reference: bill.reference || null,
+      status: bill.status,
+      vendor: bill.vendor,
+      items,
+      totals: {
+        untaxed: bill.totalUntaxedAmount,
+        tax: bill.totalTaxAmount,
+        total: bill.totalAmount,
+      },
+      payments: {
+        paidCash: bill.paidCash || 0,
+        paidBank: bill.paidBank || 0,
+        amountDue: bill.amountDue || 0,
+      }
+    };
+    if ((req.query.format || '').toLowerCase() === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ size: 'A4', margin: 36 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename=${bill.billNumber}.pdf`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(18).text('Vendor Bill', { align: 'center' }).moveDown(0.5);
+      doc.fontSize(12)
+        .text(`Bill No: ${payload.billNumber}`)
+        .text(`Bill Date: ${new Date(payload.invoiceDate).toDateString()}`)
+        .text(`Due Date: ${payload.dueDate ? new Date(payload.dueDate).toDateString() : '-'}`)
+        .text(`Status: ${payload.status}`)
+        .moveDown(0.5);
+
+      // Vendor
+      doc.fontSize(12).text('Vendor:', { underline: true });
+      const vend = payload.vendor || {};
+      doc.text(`Name: ${vend.name || ''}`)
+         .text(`Email: ${vend.email || ''}`)
+         .text(`Mobile: ${vend.mobile || ''}`)
+         .moveDown(0.5);
+
+      // Items
+      doc.fontSize(12).text('Items:', { underline: true }).moveDown(0.25);
+      payload.items.forEach((it, idx) => {
+        const p = it.product || {};
+        doc.moveDown(0.15)
+          .text(`${idx + 1}. ${p.name || 'Item'} | HSN: ${it.hsnCode || ''}`)
+          .text(`Qty: ${it.quantity}  Unit: ${it.unitPrice}  Tax%: ${it.taxRate}  Line Total: ${it.lineTotal.toFixed(2)}`);
+      });
+
+      // Totals
+      doc.moveDown(0.75);
+      doc.fontSize(12).text('Totals:', { underline: true });
+      doc.text(`Untaxed: ${payload.totals.untaxed.toFixed(2)}`)
+         .text(`Tax: ${payload.totals.tax.toFixed(2)}`)
+         .text(`Total: ${payload.totals.total.toFixed(2)}`)
+         .moveDown(0.5);
+
+      // Payments
+      doc.fontSize(12).text('Payments:', { underline: true });
+      doc.text(`Paid Cash: ${payload.payments.paidCash.toFixed(2)}`)
+         .text(`Paid Bank: ${payload.payments.paidBank.toFixed(2)}`)
+         .text(`Amount Due: ${payload.payments.amountDue.toFixed(2)}`);
+
+      doc.end();
+      return;
+    }
+    res.json({ success: true, print: payload });
+  } catch (err) { next(err); }
+};
+
 
 exports.confirmBill = async (req, res, next) => {
   try {

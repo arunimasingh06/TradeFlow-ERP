@@ -3,28 +3,29 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { requireAuth, requireRole } = require('../middlewares/jwtAuth');
 const {
-  listPOs,
-  getPO,
-  createPO,
-  updatePO,
-  confirmPO,
-  cancelPO,
-  createBillFromPO,
-  printPO,
-} = require('../controllers/purchaseOrdersController');
+  listInvoices,
+  getInvoice,
+  createInvoice,
+  updateInvoice,
+  confirmInvoice,
+  cancelInvoice,
+  addPayment,
+  createFromSO,
+} = require('../controllers/customerInvoicesController');
 
 router.use(requireAuth);
 
-// List and get
-router.get('/', listPOs);
-router.get('/:id', getPO);
-router.get('/:id/print', printPO);
+// List / Read
+router.get('/', listInvoices);
+router.get('/:id', getInvoice);
 
-// Create
+// Create invoice (manual)
 router.post(
   '/',
   [
-    body('vendor').notEmpty().withMessage('vendor is required'),
+    body('customer').notEmpty().withMessage('customer is required'),
+    body('invoiceDate').optional().isISO8601().toDate(),
+    body('dueDate').optional().isISO8601().toDate(),
     body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
     body('items.*.product').notEmpty().withMessage('product is required'),
     body('items.*.quantity').isFloat({ gt: 0 }).withMessage('quantity must be > 0'),
@@ -34,7 +35,21 @@ router.post(
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
-    return createPO(req, res, next);
+    return createInvoice(req, res, next);
+  }
+);
+
+// Create from SO (confirmed)
+router.post(
+  '/from-so/:soId',
+  [
+    body('invoiceDate').optional().isISO8601().toDate(),
+    body('dueDate').optional().isISO8601().toDate(),
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
+    return createFromSO(req, res, next);
   }
 );
 
@@ -42,7 +57,9 @@ router.post(
 router.put(
   '/:id',
   [
-    body('vendor').optional().notEmpty(),
+    body('customer').optional().notEmpty(),
+    body('invoiceDate').optional().isISO8601().toDate(),
+    body('dueDate').optional().isISO8601().toDate(),
     body('items').optional().isArray({ min: 1 }),
     body('items.*.product').optional().notEmpty(),
     body('items.*.quantity').optional().isFloat({ gt: 0 }),
@@ -52,15 +69,13 @@ router.put(
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
-    return updatePO(req, res, next);
+    return updateInvoice(req, res, next);
   }
 );
 
-// Status transitions
-router.post('/:id/confirm', requireRole('admin'), confirmPO);
-router.post('/:id/cancel', requireRole('admin'), cancelPO);
-
-// Create Vendor Bill from a confirmed PO
-router.post('/:id/create-bill', requireRole('admin'), createBillFromPO);
+// Status and payments (admin)
+router.post('/:id/confirm', requireRole('admin'), confirmInvoice);
+router.post('/:id/cancel', requireRole('admin'), cancelInvoice);
+router.post('/:id/pay', requireRole('admin'), addPayment);
 
 module.exports = router;

@@ -9,6 +9,8 @@ const {
   updateSO,
   confirmSO,
   cancelSO,
+  printSO,
+  createInvoiceFromSO,
 } = require('../controllers/salesOrdersController');
 
 router.use(requireAuth);
@@ -16,6 +18,7 @@ router.use(requireAuth);
 // List / Read
 router.get('/', listSOs);
 router.get('/:id', getSO);
+router.get('/:id/print', printSO);
 
 // Create
 router.post(
@@ -56,5 +59,6 @@ router.put(
 // Status transitions (admin)
 router.post('/:id/confirm', requireRole('admin'), confirmSO);
 router.post('/:id/cancel', requireRole('admin'), cancelSO);
+router.post('/:id/create-invoice', requireRole('admin'), createInvoiceFromSO);
 
 module.exports = router;

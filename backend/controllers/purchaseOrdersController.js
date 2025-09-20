@@ -70,6 +70,84 @@ exports.listPOs = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// GET /api/purchase-orders/:id/print
+exports.printPO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id)
+      .populate('vendor', 'name email mobile')
+      .populate('items.product', 'name hsnCode purchasePrice');
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+
+    const items = po.items.map(l => ({
+      product: l.product,
+      quantity: l.quantity,
+      unitPrice: l.unitPrice,
+      taxRate: l.taxRate || 0,
+      lineUntaxed: l.unitPrice * l.quantity,
+      lineTax: (l.unitPrice * l.quantity * (l.taxRate || 0)) / 100,
+      lineTotal: l.unitPrice * l.quantity * (1 + (l.taxRate || 0)/100),
+    }));
+
+    const payload = {
+      poNumber: po.poNumber,
+      poDate: po.poDate,
+      reference: po.reference || null,
+      status: po.status,
+      vendor: po.vendor,
+      items,
+      totals: {
+        untaxed: po.totalUntaxedAmount,
+        tax: po.totalTaxAmount,
+        total: po.totalAmount,
+      },
+    };
+    if ((req.query.format || '').toLowerCase() === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ size: 'A4', margin: 36 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename=${po.poNumber}.pdf`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(18).text('Purchase Order', { align: 'center' }).moveDown(0.5);
+      doc.fontSize(12)
+        .text(`PO No: ${payload.poNumber}`)
+        .text(`PO Date: ${new Date(payload.poDate).toDateString()}`)
+        .text(`Status: ${payload.status}`)
+        .text(`Reference: ${payload.reference || '-'}`)
+        .moveDown(0.5);
+
+      // Vendor
+      doc.fontSize(12).text('Vendor:', { underline: true });
+      const vend = payload.vendor || {};
+      doc.text(`Name: ${vend.name || ''}`)
+         .text(`Email: ${vend.email || ''}`)
+         .text(`Mobile: ${vend.mobile || ''}`)
+         .moveDown(0.5);
+
+      // Items
+      doc.fontSize(12).text('Items:', { underline: true }).moveDown(0.25);
+      payload.items.forEach((it, idx) => {
+        const p = it.product || {};
+        doc.moveDown(0.15)
+          .text(`${idx + 1}. ${p.name || 'Item'} | HSN: ${p.hsnCode || ''}`)
+          .text(`Qty: ${it.quantity}  Unit: ${it.unitPrice}  Tax%: ${it.taxRate}  Line Total: ${it.lineTotal.toFixed(2)}`);
+      });
+
+      // Totals
+      doc.moveDown(0.75);
+      doc.fontSize(12).text('Totals:', { underline: true });
+      doc.text(`Untaxed: ${payload.totals.untaxed.toFixed(2)}`)
+         .text(`Tax: ${payload.totals.tax.toFixed(2)}`)
+         .text(`Total: ${payload.totals.total.toFixed(2)}`);
+
+      doc.end();
+      return;
+    }
+    res.json({ success: true, print: payload });
+  } catch (err) { next(err); }
+};
+
 // Get one PO
 exports.getPO = async (req, res, next) => {
   try {
@@ -84,7 +162,7 @@ exports.getPO = async (req, res, next) => {
 // Create PO
 exports.createPO = async (req, res, next) => {
   try {
-    // ensure vendor exists and is vendor/both
+    // ensure vendor exists
     const vendor = await Partner.findById(req.body.vendor);
     if (!vendor) return res.status(400).json({ message: 'Invalid vendor' });
 

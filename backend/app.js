@@ -60,6 +60,8 @@ app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
 app.use('/api/vendor-bills', require('./routes/vendorBills'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/sales-orders', require('./routes/salesOrders'));
+app.use('/api/customer-invoices', require('./routes/customerInvoices'));
+app.use('/api/ledger', require('./routes/ledger'));
 
 app.get('/', (req, res) => {
   res.json({
