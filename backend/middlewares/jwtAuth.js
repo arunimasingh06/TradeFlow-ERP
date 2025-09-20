@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_only_change_me';
 
-// Strict auth: request must include a valid token
+
 function requireAuth(req, res, next) {
   try {
     const token = extractToken(req);
@@ -18,19 +18,14 @@ function requireAuth(req, res, next) {
   }
 }
 
-// Optional auth: if token exists and valid, attach req.user; otherwise continue
-function optionalAuth(req, res, next) {
-  try {
-    const token = extractToken(req);
-    if (!token) return next();
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded.user;
-    next();
-  } catch (err) {
-    // Ignore invalid token and proceed as unauthenticated
+// Authorization: ensure authenticated user has a specific role
+function requireRole(role) {
+  return function (req, res, next) {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+    if (!req.user.role) return res.status(403).json({ message: 'Forbidden' });
+    if (req.user.role !== role) return res.status(403).json({ message: 'Insufficient role' });
     return next();
-  }
+  };
 }
 
 // Utility: Extract Bearer token from headers or cookie
@@ -50,5 +45,5 @@ function extractToken(req) {
 
 module.exports = {
   requireAuth,
-  optionalAuth,
+  requireRole,
 };

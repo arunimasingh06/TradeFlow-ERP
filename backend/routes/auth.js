@@ -1,34 +1,27 @@
-// routes/auth.js
-// Handles all authentication-related API endpoints (signup, login)
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
-const crypto = require('crypto');
 const User = require('../models/User');
 const { requireAuth } = require('../middlewares/jwtAuth');
 
 const router = express.Router();
 
-// Use environment variable for JWT secret; never hardcode in production
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_only_change_me';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Rate limiters specifically for auth endpoints
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, //15mins
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Password policy: > 8 chars, one lowercase, one uppercase, one number, one special
 const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{9,}$/;
 
-// --- SIGNUP ROUTE ---
-// @route   POST /api/auth/signup
-// @desc    Register a new user
+
 router.post(
   '/signup',
   authLimiter,
@@ -56,17 +49,17 @@ router.post(
     const { name, loginId, email, password } = req.body;
 
     try {
-      // 1. Check if user already exists (by loginId or email)
+      // if user already exists
       let user = await User.findOne({ $or: [{ loginId }, { email }] });
       if (user) {
         return res.status(400).json({ message: 'User with this Login ID or Email already exists.' });
       }
 
-      // 2. Create and hash password
+      // password hashing and creation 
       const salt = await bcrypt.genSalt(10);
       const hashed = await bcrypt.hash(password, salt);
 
-      // 3. Save user (role defaults to invoicing)
+      // Save user (role defaults to invoicing)
       user = new User({ name, loginId, email: email.toLowerCase(), password: hashed });
       await user.save();
 
@@ -78,9 +71,7 @@ router.post(
   }
 );
 
-// --- LOGIN ROUTE ---
-// @route   POST /api/auth/login
-// @desc    Authenticate a user and get a token
+
 router.post(
   '/login',
   authLimiter,
@@ -123,9 +114,7 @@ router.post(
   }
 );
 
-// --- FORGOT PASSWORD (Placeholder) ---
-// @route   POST /api/auth/forgot-password
-// @desc    Handle forgot password requests
+//  FORGOT PASSWORD
 router.post(
   '/forgot-password',
   authLimiter,
@@ -138,23 +127,19 @@ router.post(
 
     const { loginId } = req.body;
     const user = await User.findOne({ loginId });
+    // Always respond success to avoid user enumeration
     if (!user) {
-      // Do not reveal if user exists
       return res.status(200).json({ message: 'If a user with that login ID exists, a password reset link has been sent.' });
     }
 
-    const token = crypto.randomBytes(20).toString('hex');
-    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-    user.passwordResetToken = token;
-    user.passwordResetExpires = expires;
-    await user.save();
+    // Create a 15-minute reset JWT with purpose claim
+    const resetToken = jwt.sign({ sub: user.id, purpose: 'password_reset' }, JWT_SECRET, { expiresIn: '15m' });
 
-    // TODO: Send email with token; for now return token for dev/testing
-    return res.status(200).json({ message: 'Password reset link generated.', resetToken: token, expiresAt: expires });
+    return res.status(200).json({ message: 'Password reset link generated.', resetToken });
   }
 );
 
-// Reset password (consume token)
+// Reset password (consume JWT reset token)
 router.post(
   '/reset-password',
   authLimiter,
@@ -171,18 +156,26 @@ router.post(
     }
 
     const { token, password } = req.body;
-    const user = await User.findOne({ passwordResetToken: token, passwordResetExpires: { $gt: new Date() } });
-    if (!user) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.purpose !== 'password_reset') {
+        return res.status(400).json({ message: 'Invalid reset token' });
+      }
+
+      const userId = decoded.sub;
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid reset token' });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+      await user.save();
+
+      res.json({ message: 'Password has been reset successfully.' });
+    } catch (e) {
       return res.status(400).json({ message: 'Invalid or expired reset token' });
     }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
-    await user.save();
-
-    res.json({ message: 'Password has been reset successfully.' });
   }
 );
 

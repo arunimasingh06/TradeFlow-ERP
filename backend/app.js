@@ -51,6 +51,12 @@ app.get('/health', (req, res) => {
 
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/auth', require('./routes/auth'));
+// Master Data routes
+app.use('/api/master/contacts', require('./routes/master.contacts'));
+app.use('/api/master/products', require('./routes/master.products'));
+app.use('/api/master/taxes', require('./routes/master.taxes'));
+app.use('/api/master/coa', require('./routes/master.coa'));
+app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
 
 app.get('/', (req, res) => {
   res.json({

@@ -27,6 +27,14 @@ const contactSchema = new mongoose.Schema({
   profileImage: { 
     type: String 
 }, 
+  // Master data management
+  isActive: { type: Boolean, default: true },
+  archivedAt: { type: Date, default: null }
 }, { timestamps: true });
+
+// Indexes for faster list/search
+contactSchema.index({ name: 1 });
+contactSchema.index({ email: 1 });
+contactSchema.index({ type: 1, isActive: 1 });
 
 module.exports = mongoose.model("Contact", contactSchema);

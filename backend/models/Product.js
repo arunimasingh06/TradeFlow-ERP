@@ -33,6 +33,14 @@ const productSchema = new mongoose.Schema({
   category: {           
     type: String 
     },
+  // Master data management
+  isActive: { type: Boolean, default: true },
+  archivedAt: { type: Date, default: null }
 }, { timestamps: true });
+
+// Indexes for faster list/search
+productSchema.index({ name: 1 });
+productSchema.index({ type: 1 });
+productSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model("Product", productSchema);

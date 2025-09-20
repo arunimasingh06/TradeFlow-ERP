@@ -16,10 +16,17 @@ const coaSchema = new mongoose.Schema({
   description: { 
     type: String 
     },
+  // Master data management
+  isActive: { type: Boolean, default: true },
+  archivedAt: { type: Date, default: null }
 }, 
 
 { 
     timestamps: true 
 });
+
+// Indexes
+coaSchema.index({ accountName: 1 });
+coaSchema.index({ type: 1, isActive: 1 });
 
 module.exports = mongoose.model("CoA", coaSchema);

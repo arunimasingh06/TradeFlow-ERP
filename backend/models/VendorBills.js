@@ -5,6 +5,12 @@ const vendorBillSchema = new mongoose.Schema(
     purchaseOrder: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PurchaseOrder",
+      required: false,
+    },
+
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Contact",
       required: true,
     },
 

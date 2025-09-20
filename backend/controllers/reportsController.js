@@ -6,7 +6,6 @@ const Payment = require('../models/Payment');
 const VendorBill = require('../models/VendorBills');
 const StockLedger = require('../models/StockLedger');
 
-// GET /api/reports/stock
 // Returns on-hand stock per product and overall summary
 exports.getStockReport = async (req, res, next) => {
   try {
@@ -69,7 +68,6 @@ exports.getStockReport = async (req, res, next) => {
   }
 };
 
-// GET /api/reports/pl
 // Returns Profit & Loss summary for all data (can be extended with date filters)
 exports.getProfitAndLoss = async (req, res, next) => {
   try {
@@ -79,7 +77,7 @@ exports.getProfitAndLoss = async (req, res, next) => {
     ]);
     const salesIncome = salesAgg[0]?.total || 0;
 
-    // Purchase Expenses: vendor bills totalAmount
+    // Purchase Expenses:vendor bills totalAmount
     const purchaseAgg = await VendorBill.aggregate([
       { $group: { _id: null, total: { $sum: '$totalAmount' } } },
     ]);
@@ -104,7 +102,6 @@ exports.getProfitAndLoss = async (req, res, next) => {
   }
 };
 
-// GET /api/reports/balance-sheet
 // Returns a simplified balance sheet snapshot
 exports.getBalanceSheet = async (req, res, next) => {
   try {

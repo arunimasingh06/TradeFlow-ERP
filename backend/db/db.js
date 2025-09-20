@@ -9,7 +9,7 @@ const connectDB = async () => {
     });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-    
+
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
     });
@@ -18,7 +18,7 @@ const connectDB = async () => {
       console.log('MongoDB disconnected');
     });
 
-    // Graceful shutdown
+
     process.on('SIGINT', async () => {
       await mongoose.connection.close();
       console.log('MongoDB connection closed through app termination');

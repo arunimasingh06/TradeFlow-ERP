@@ -2,9 +2,22 @@ const mongoose = require("mongoose");
 
 const purchaseOrderSchema = new mongoose.Schema(
   {
+    poNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    poDate: {
+      type: Date,
+      default: Date.now,
+    },
+    reference: {
+      type: String,
+      default: null,
+    },
     vendor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "Contact",
       required: true,
     },
 
@@ -25,56 +38,40 @@ const purchaseOrderSchema = new mongoose.Schema(
           required: true,
           min: 0,
         },
-        tax: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Tax",
+        taxRate: { // percentage, e.g., 5 for 5%
+          type: Number,
+          default: 0,
+          min: 0,
         },
       },
     ],
 
     status: {
       type: String,
-      enum: ["Draft", "Ordered", "Received"],
-      default: "Draft",
+      enum: ["draft", "confirmed", "cancelled", "billed"],
+      default: "draft",
     },
 
-    totalAmount: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
-    },
-
-    expectedDate: {
-      type: Date,
-    },
+    totalUntaxedAmount: { type: Number, default: 0 },
+    totalTaxAmount: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
-// Pre-save hook to auto-calculate totalAmount including tax
+// Calculate totals before save
 purchaseOrderSchema.pre("save", async function (next) {
-  const Tax = mongoose.model("Tax");
-  let total = 0;
-
+  let untaxed = 0;
+  let tax = 0;
   for (const item of this.items) {
-    let taxAmount = 0;
-
-    if (item.tax) {
-      const taxDoc = await Tax.findById(item.tax).lean();
-      if (taxDoc) {
-        if (taxDoc.method === 'Percentage') {
-          taxAmount = (item.unitPrice * item.quantity * (taxDoc.value || 0)) / 100;
-        } else if (taxDoc.method === 'Fixed') {
-          taxAmount = taxDoc.value || 0;
-        }
-      }
-    }
-
-    total += item.unitPrice * item.quantity + taxAmount;
+    const lineUntaxed = item.unitPrice * item.quantity;
+    const lineTax = (lineUntaxed * (item.taxRate || 0)) / 100;
+    untaxed += lineUntaxed;
+    tax += lineTax;
   }
-
-  this.totalAmount = total;
+  this.totalUntaxedAmount = untaxed;
+  this.totalTaxAmount = tax;
+  this.totalAmount = untaxed + tax;
   next();
 });
 

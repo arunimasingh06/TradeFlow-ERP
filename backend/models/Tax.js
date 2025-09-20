@@ -21,12 +21,20 @@ const taxSchema = new mongoose.Schema({
     type: String,
     enum: ["Sales", "Purchase", "Both"],
     required: true 
-    }
+    },
+
+  // Master data management
+  isActive: { type: Boolean, default: true },
+  archivedAt: { type: Date, default: null }
 
 },
 
  { 
     timestamps: true
  });
+
+// Indexes for search/list
+taxSchema.index({ name: 1 });
+taxSchema.index({ applicableOn: 1, isActive: 1 });
 
 module.exports = mongoose.model("Tax", taxSchema);

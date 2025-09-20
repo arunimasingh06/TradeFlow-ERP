@@ -28,18 +28,8 @@ const UserSchema = new Schema({
     type: String,
     enum: ['invoicing', 'admin'],
     default: 'invoicing'
-  },
-  // Password reset (forgot password) support
-  passwordResetToken: {
-    type: String,
-    default: null
-  },
-  passwordResetExpires: {
-    type: Date,
-    default: null
   }
 }, {
-  // Automatically add 'createdAt' and 'updatedAt' fields
   timestamps: true
 });
 
