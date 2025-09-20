@@ -88,3 +88,57 @@ exports.unarchiveAccount = async (req, res, next) => {
     res.json({ success: true, item: doc });
   } catch (err) { next(err); }
 };
+
+// POST /api/master/coa/seed-defaults
+// Creates default accounts if they don't exist: Sales Income (Income), Purchase Expense (Expense), Other Expense (Expense)
+exports.seedDefaults = async (req, res, next) => {
+  try {
+    const defaults = [
+      { accountName: 'Sales Income A/c', type: 'Income', description: 'Default sales revenue account', isActive: true },
+      { accountName: 'Purchase Expense A/c', type: 'Expense', description: 'Default purchase expense account', isActive: true },
+      { accountName: 'Other Expense A/c', type: 'Expense', description: 'Default miscellaneous expense account', isActive: true },
+    ];
+    const results = [];
+    for (const def of defaults) {
+      const existing = await CoA.findOne({ accountName: def.accountName });
+      if (existing) {
+        if (!existing.isActive) {
+          existing.isActive = true;
+          existing.archivedAt = null;
+          await existing.save();
+        }
+        results.push({ accountName: def.accountName, status: 'exists', id: existing._id });
+      } else {
+        const created = await CoA.create(def);
+        results.push({ accountName: def.accountName, status: 'created', id: created._id });
+      }
+    }
+    res.status(201).json({ success: true, results });
+  } catch (err) { next(err); }
+};
+
+// GET /api/master/coa/health
+// Returns whether minimal required accounts exist and are active and some stats
+exports.health = async (req, res, next) => {
+  try {
+    const activeIncome = await CoA.findOne({ type: 'Income', isActive: true }).lean();
+    const activeExpense = await CoA.findOne({ type: 'Expense', isActive: true }).lean();
+    const salesIncome = await CoA.findOne({ accountName: /Sales Income/i, isActive: true }).lean();
+    const purchaseExpense = await CoA.findOne({ accountName: /Purchase Expense/i, isActive: true }).lean();
+
+    const byType = await CoA.aggregate([
+      { $group: { _id: { type: '$type', isActive: '$isActive' }, count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      success: true,
+      requirements: {
+        hasActiveIncome: !!activeIncome,
+        hasActiveExpense: !!activeExpense,
+        hasSalesIncomeAccount: !!salesIncome,
+        hasPurchaseExpenseAccount: !!purchaseExpense,
+      },
+      stats: byType.map(r => ({ type: r._id.type, isActive: r._id.isActive, count: r.count })),
+    });
+  } catch (err) { next(err); }
+};

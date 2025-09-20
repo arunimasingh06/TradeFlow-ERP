@@ -10,7 +10,7 @@ const paymentVoucherSchema = new mongoose.Schema({
 
   // Link to bill/invoice (optional)
   vendorBill: { type: mongoose.Schema.Types.ObjectId, ref: 'VendorBill', default: null },
-  // Future: sales invoice can be added here
+  customerInvoice: { type: mongoose.Schema.Types.ObjectId, ref: 'CustomerInvoice', default: null },
 
   paymentDate: { type: Date, default: Date.now },
   mode: { type: String, enum: ['Cash','Bank'], default: 'Bank' },

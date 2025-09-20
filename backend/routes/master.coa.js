@@ -8,6 +8,8 @@ const {
   updateAccount,
   archiveAccount,
   unarchiveAccount,
+  seedDefaults,
+  health,
 } = require('../controllers/coaController');
 
 // Protect all master routes
@@ -19,5 +21,7 @@ router.post('/', createAccount);
 router.put('/:id', updateAccount);
 router.patch('/:id/archive', archiveAccount);
 router.patch('/:id/unarchive', unarchiveAccount);
+router.post('/seed-defaults', seedDefaults);
+router.get('/health', health);
 
 module.exports = router;

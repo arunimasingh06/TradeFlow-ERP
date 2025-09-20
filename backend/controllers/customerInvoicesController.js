@@ -26,8 +26,8 @@ async function getNextInvoiceNumber() {
 
 async function resolveDefaultIncomeAccount() {
   // Prefer a Sales Income A/c; otherwise any Income account
-  let acc = await CoA.findOne({ accountName: /Sales Income/i });
-  if (!acc) acc = await CoA.findOne({ type: 'Income' });
+  let acc = await CoA.findOne({ accountName: /Sales Income/i, isActive: true });
+  if (!acc) acc = await CoA.findOne({ type: 'Income', isActive: true });
   return acc ? acc._id : null;
 }
 
@@ -65,7 +65,7 @@ exports.printInvoice = async (req, res, next) => {
     const inv = await CustomerInvoice.findById(req.params.id)
       .populate('customer', 'name email mobile')
       .populate('items.product', 'name hsnCode salesPrice')
-      .populate('items.account', 'accountName code type')
+      .populate('items.account', 'accountName type')
       .populate('salesOrder', 'soNumber');
     if (!inv) return res.status(404).json({ message: 'Customer Invoice not found' });
 
@@ -177,6 +177,7 @@ exports.createInvoice = async (req, res, next) => {
 
     const defaultIncomeAcc = await resolveDefaultIncomeAccount();
     if (Array.isArray(req.body.items)) {
+      let missingAccount = false;
       for (const line of req.body.items) {
         if (line.product) {
           const prod = await Product.findById(line.product).lean();
@@ -185,7 +186,12 @@ exports.createInvoice = async (req, res, next) => {
             if (!line.hsnCode && prod.hsnCode) line.hsnCode = prod.hsnCode;
           }
         }
-        if (!line.account && defaultIncomeAcc) line.account = defaultIncomeAcc;
+        if (!line.account) {
+          if (defaultIncomeAcc) line.account = defaultIncomeAcc; else missingAccount = true;
+        }
+      }
+      if (missingAccount) {
+        return res.status(400).json({ message: 'No active Income account configured. Please create/activate an Income account or provide an account for each item.' });
       }
     }
 
@@ -204,6 +210,7 @@ exports.updateInvoice = async (req, res, next) => {
 
     const defaultIncomeAcc = await resolveDefaultIncomeAccount();
     if (Array.isArray(req.body.items)) {
+      let missingAccount = false;
       for (const line of req.body.items) {
         if (line.product) {
           const prod = await Product.findById(line.product).lean();
@@ -212,7 +219,12 @@ exports.updateInvoice = async (req, res, next) => {
             if (!line.hsnCode && prod.hsnCode) line.hsnCode = prod.hsnCode;
           }
         }
-        if (!line.account && defaultIncomeAcc) line.account = defaultIncomeAcc;
+        if (!line.account) {
+          if (defaultIncomeAcc) line.account = defaultIncomeAcc; else missingAccount = true;
+        }
+      }
+      if (missingAccount) {
+        return res.status(400).json({ message: 'No active Income account configured. Please create/activate an Income account or provide an account for each item.' });
       }
     }
 
@@ -274,6 +286,9 @@ exports.createFromSO = async (req, res, next) => {
     if (so.status !== 'confirmed') return res.status(400).json({ message: 'Only confirmed SO can be invoiced' });
 
     const defaultIncomeAcc = await resolveDefaultIncomeAccount();
+    if (!defaultIncomeAcc) {
+      return res.status(400).json({ message: 'No active Income account configured. Please create/activate an Income account before creating invoices from SO.' });
+    }
     const items = so.items.map((line) => ({
       product: line.product?._id || line.product,
       hsnCode: line.product?.hsnCode || null,

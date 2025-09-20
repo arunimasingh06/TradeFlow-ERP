@@ -24,8 +24,8 @@ async function getNextBillNumber() {
 }
 
 async function resolveDefaultAccount() {
-  let acc = await CoA.findOne({ accountName: /Purchase Expense/i });
-  if (!acc) acc = await CoA.findOne({ type: 'Expense' });
+  let acc = await CoA.findOne({ accountName: /Purchase Expense/i, isActive: true });
+  if (!acc) acc = await CoA.findOne({ type: 'Expense', isActive: true });
   return acc ? acc._id : null;
 }
 
@@ -78,6 +78,7 @@ exports.createBill = async (req, res, next) => {
     const defaultAccountId = await resolveDefaultAccount();
     //Fill HSN from product and default account if missing
     if (Array.isArray(req.body.items)) {
+      let missingAccount = false;
       for (const line of req.body.items) {
         if (line.product) {
           const prod = await Product.findById(line.product).lean(); //.lean() returns a plain JavaScript object instead of a Mongoose document (faster and simpler for reading).
@@ -86,7 +87,12 @@ exports.createBill = async (req, res, next) => {
             if (!line.hsnCode && prod.hsnCode) line.hsnCode = prod.hsnCode;
           }
         }
-        if (!line.account && defaultAccountId) line.account = defaultAccountId;
+        if (!line.account) {
+          if (defaultAccountId) line.account = defaultAccountId; else missingAccount = true;
+        }
+      }
+      if (missingAccount) {
+        return res.status(400).json({ message: 'No active Expense account configured. Please create/activate an Expense account or provide an account for each item.' });
       }
     }
 
@@ -106,6 +112,7 @@ exports.updateBill = async (req, res, next) => {
 
     const defaultAccountId = await resolveDefaultAccount();
     if (Array.isArray(req.body.items)) {
+      let missingAccount = false;
       for (const line of req.body.items) {
         if (line.product) {
           const prod = await Product.findById(line.product).lean();
@@ -114,7 +121,12 @@ exports.updateBill = async (req, res, next) => {
             if (!line.hsnCode && prod.hsnCode) line.hsnCode = prod.hsnCode;
           }
         }
-        if (!line.account && defaultAccountId) line.account = defaultAccountId;
+        if (!line.account) {
+          if (defaultAccountId) line.account = defaultAccountId; else missingAccount = true;
+        }
+      }
+      if (missingAccount) {
+        return res.status(400).json({ message: 'No active Expense account configured. Please create/activate an Expense account or provide an account for each item.' });
       }
     }
 
@@ -130,7 +142,7 @@ exports.printBill = async (req, res, next) => {
     const bill = await VendorBill.findById(req.params.id)
       .populate('vendor', 'name email mobile')
       .populate('items.product', 'name hsnCode')
-      .populate('items.account', 'accountName code type');
+      .populate('items.account', 'accountName type');
     if (!bill) return res.status(404).json({ message: 'Vendor Bill not found' });
 
     const items = bill.items.map(l => ({
