@@ -1,0 +1,271 @@
+const PurchaseOrder = require('../models/PurchaseOrder');
+const Product = require('../models/Product');
+const Partner = require('../models/Partner');
+const VendorBill = require('../models/VendorBills');
+const Counter = require('../models/Counter');
+const CoA = require('../models/CoA');
+
+function parsePagination(req) {
+  const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+}
+
+async function getNextBillNumber() {
+  const year = new Date().getFullYear();
+  const key = `vb-${year}`;
+  const doc = await Counter.findOneAndUpdate(
+    { key },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true }
+  );
+  const seq = doc.seq || 1;
+  return `Bill/${year}/${String(seq).padStart(4, '0')}`;
+}
+
+async function resolveDefaultAccount() {
+  let acc = await CoA.findOne({ accountName: /Purchase Expense/i });
+  if (!acc) acc = await CoA.findOne({ type: 'Expense' });
+  return acc ? acc._id : null;
+}
+
+async function getNextPONumber() {
+  const doc = await Counter.findOneAndUpdate(
+    { key: 'po' },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true }
+  );
+  const seq = doc.seq || 1;
+  // PO + 5-digit padded number: PO00001
+  return 'PO' + String(seq).padStart(5, '0');
+}
+
+// List POs
+exports.listPOs = async (req, res, next) => {
+  try {
+    const { page, limit, skip } = parsePagination(req);
+    const q = (req.query.q || '').trim();
+    const status = req.query.status; // draft | confirmed | cancelled | billed
+    const vendor = req.query.vendor; // vendor id
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (vendor) filter.vendor = vendor;
+    if (q) {
+      filter.poNumber = new RegExp(q, 'i');
+    }
+
+    const [items, total] = await Promise.all([
+      PurchaseOrder.find(filter)
+        .populate('vendor', 'name email')
+        .populate('items.product', 'name purchasePrice')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      PurchaseOrder.countDocuments(filter),
+    ]);
+
+    res.json({ success: true, page, limit, total, items });
+  } catch (err) { next(err); }
+};
+
+// GET /api/purchase-orders/:id/print
+exports.printPO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id)
+      .populate('vendor', 'name email mobile')
+      .populate('items.product', 'name hsnCode purchasePrice');
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+
+    const items = po.items.map(l => ({
+      product: l.product,
+      quantity: l.quantity,
+      unitPrice: l.unitPrice,
+      taxRate: l.taxRate || 0,
+      lineUntaxed: l.unitPrice * l.quantity,
+      lineTax: (l.unitPrice * l.quantity * (l.taxRate || 0)) / 100,
+      lineTotal: l.unitPrice * l.quantity * (1 + (l.taxRate || 0)/100),
+    }));
+
+    const payload = {
+      poNumber: po.poNumber,
+      poDate: po.poDate,
+      reference: po.reference || null,
+      status: po.status,
+      vendor: po.vendor,
+      items,
+      totals: {
+        untaxed: po.totalUntaxedAmount,
+        tax: po.totalTaxAmount,
+        total: po.totalAmount,
+      },
+    };
+    if ((req.query.format || '').toLowerCase() === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ size: 'A4', margin: 36 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename=${po.poNumber}.pdf`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(18).text('Purchase Order', { align: 'center' }).moveDown(0.5);
+      doc.fontSize(12)
+        .text(`PO No: ${payload.poNumber}`)
+        .text(`PO Date: ${new Date(payload.poDate).toDateString()}`)
+        .text(`Status: ${payload.status}`)
+        .text(`Reference: ${payload.reference || '-'}`)
+        .moveDown(0.5);
+
+      // Vendor
+      doc.fontSize(12).text('Vendor:', { underline: true });
+      const vend = payload.vendor || {};
+      doc.text(`Name: ${vend.name || ''}`)
+         .text(`Email: ${vend.email || ''}`)
+         .text(`Mobile: ${vend.mobile || ''}`)
+         .moveDown(0.5);
+
+      // Items
+      doc.fontSize(12).text('Items:', { underline: true }).moveDown(0.25);
+      payload.items.forEach((it, idx) => {
+        const p = it.product || {};
+        doc.moveDown(0.15)
+          .text(`${idx + 1}. ${p.name || 'Item'} | HSN: ${p.hsnCode || ''}`)
+          .text(`Qty: ${it.quantity}  Unit: ${it.unitPrice}  Tax%: ${it.taxRate}  Line Total: ${it.lineTotal.toFixed(2)}`);
+      });
+
+      // Totals
+      doc.moveDown(0.75);
+      doc.fontSize(12).text('Totals:', { underline: true });
+      doc.text(`Untaxed: ${payload.totals.untaxed.toFixed(2)}`)
+         .text(`Tax: ${payload.totals.tax.toFixed(2)}`)
+         .text(`Total: ${payload.totals.total.toFixed(2)}`);
+
+      doc.end();
+      return;
+    }
+    res.json({ success: true, print: payload });
+  } catch (err) { next(err); }
+};
+
+// Get one PO
+exports.getPO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id)
+      .populate('vendor', 'name email')
+      .populate('items.product', 'name purchasePrice');
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    res.json({ success: true, item: po });
+  } catch (err) { next(err); }
+};
+
+// Create PO
+exports.createPO = async (req, res, next) => {
+  try {
+    // ensure vendor exists
+    const vendor = await Partner.findById(req.body.vendor);
+    if (!vendor) return res.status(400).json({ message: 'Invalid vendor' });
+
+    // Default unitPrice from product if not provided
+    if (Array.isArray(req.body.items)) {
+      for (const line of req.body.items) {
+        if (line.product && (line.unitPrice === undefined || line.unitPrice === null)) {
+          const prod = await Product.findById(line.product).lean();
+          if (prod) line.unitPrice = prod.purchasePrice || 0;
+        }
+      }
+    }
+
+    const poNumber = req.body.poNumber || await getNextPONumber();
+    const payload = { ...req.body, poNumber };
+    const po = await PurchaseOrder.create(payload);
+    res.status(201).json({ success: true, item: po });
+  } catch (err) { next(err); }
+};
+
+// Update PO (only when draft)
+exports.updatePO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id);
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    if (po.status !== 'draft') return res.status(400).json({ message: 'Only draft PO can be updated' });
+
+    // If items updated and some unitPrice missing, backfill from product
+    if (Array.isArray(req.body.items)) {
+      for (const line of req.body.items) {
+        if (line.product && (line.unitPrice === undefined || line.unitPrice === null)) {
+          const prod = await Product.findById(line.product).lean();
+          if (prod) line.unitPrice = prod.purchasePrice || 0;
+        }
+      }
+    }
+
+    Object.assign(po, req.body);
+    await po.save();
+    res.json({ success: true, item: po });
+  } catch (err) { next(err); }
+};
+
+// Confirm PO
+exports.confirmPO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id);
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    if (po.status !== 'draft') return res.status(400).json({ message: 'Only draft PO can be confirmed' });
+    po.status = 'confirmed';
+    await po.save();
+    res.json({ success: true, item: po });
+  } catch (err) { next(err); }
+};
+
+// Cancel PO
+exports.cancelPO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id);
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    if (po.status === 'billed') return res.status(400).json({ message: 'Billed PO cannot be cancelled' });
+    po.status = 'cancelled';
+    await po.save();
+    res.json({ success: true, item: po });
+  } catch (err) { next(err); }
+};
+
+// Create Vendor Bill from PO
+exports.createBillFromPO = async (req, res, next) => {
+  try {
+    const po = await PurchaseOrder.findById(req.params.id).populate('items.product', 'hsnCode purchasePrice');
+    if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
+    if (po.status !== 'confirmed') return res.status(400).json({ message: 'Only confirmed PO can be billed' });
+
+    const invoiceDate = req.body.invoiceDate ? new Date(req.body.invoiceDate) : new Date();
+    const dueDate = req.body.dueDate ? new Date(req.body.dueDate) : new Date(Date.now() + 30*24*60*60*1000);
+
+    const billNumber = await getNextBillNumber();
+    const defaultAccountId = await resolveDefaultAccount();
+
+    const items = po.items.map((line) => ({
+      product: line.product?._id || line.product,
+      hsnCode: line.product?.hsnCode || null,
+      account: defaultAccountId,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      taxRate: line.taxRate || 0,
+    }));
+
+    const bill = await VendorBill.create({
+      billNumber,
+      reference: req.body.reference || null,
+      purchaseOrder: po._id,
+      vendor: po.vendor,
+      invoiceDate,
+      dueDate,
+      items,
+      status: 'confirmed',
+    });
+
+    po.status = 'billed';
+    await po.save();
+
+    res.status(201).json({ success: true, billId: bill._id, bill });
+  } catch (err) { next(err); }
+};

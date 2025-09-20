@@ -14,13 +14,29 @@ const CustomerInvoice = ({ onBack, onHome, salesOrder, products }) => {
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
 
+  // HSN mapping for different products
+  const getHSNForProduct = (productName) => {
+    const hsnMapping = {
+      'Table': '94036000',
+      'Chair': '94017100', 
+      'Sofa': '94018000',
+      'Bed': '94034000',
+      'Wardrobe': '94035000',
+      'Desk': '94036000',
+      'Cabinet': '94035000',
+      'Bookshelf': '94036000',
+      'Number': '94036000' // Default for generic furniture
+    };
+    return hsnMapping[productName] || '94036000'; // Default HSN for furniture
+  };
+
   // Transform products from sales order or use empty structure for new invoices
-  const [invoiceProducts] = useState(
+  const [invoiceProducts, setInvoiceProducts] = useState(
     products && products.length > 0 && products.some(p => p.product) ? 
     products.map(p => ({
       id: p.id,
       product: p.product,
-      hsnNo: 'Auto Fill From Product (related field)',
+      hsnNo: getHSNForProduct(p.product),
       accountName: 'Sales Income A/c',
       qty: p.qty,
       unitPrice: p.unitPrice,
@@ -411,7 +427,26 @@ const CustomerInvoice = ({ onBack, onHome, salesOrder, products }) => {
                   <tr key={product.id} className="border-b" style={{borderColor: 'var(--border)'}}>
                     <td className="px-4 py-3" style={{color: 'var(--text-primary)'}}>{index + 1}</td>
                     <td className="px-4 py-3" style={{color: 'var(--text-primary)'}}>{product.product}</td>
-                    <td className="px-4 py-3" style={{color: 'var(--text-primary)'}}>{product.hsnNo}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center space-x-2">
+                        <span style={{color: 'var(--text-primary)'}}>{product.hsnNo}</span>
+                        {product.product && (
+                          <motion.button
+                            onClick={() => {
+                              const newHsn = getHSNForProduct(product.product);
+                              setInvoiceProducts(prev => prev.map(p => 
+                                p.id === product.id ? {...p, hsnNo: newHsn} : p
+                              ));
+                            }}
+                            className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            Auto Fill
+                          </motion.button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3" style={{color: 'var(--text-primary)'}}>{product.accountName}</td>
                     <td className="px-4 py-3" style={{color: 'var(--text-primary)'}}>{product.qty}</td>
                     <td className="px-4 py-3" style={{color: 'var(--text-primary)'}}>

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  CheckCircle, 
-  XCircle, 
-  Shield, 
-  Users, 
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle,
+  Shield,
+  Users,
   UserCheck,
   Sparkles,
   ArrowRight,
@@ -22,6 +22,7 @@ const GlassmorphismAuth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
+    loginId: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -33,8 +34,8 @@ const GlassmorphismAuth = () => {
   const [errors, setErrors] = useState({});
   const [validations, setValidations] = useState({});
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  
-  const { login } = useAuth();
+
+  const { login, signup } = useAuth();
 
   const roles = [
     {
@@ -97,6 +98,14 @@ const GlassmorphismAuth = () => {
           delete newErrors.email;
         }
         break;
+      case 'loginId':
+        newValidations.loginId = value.length >= 6 && value.length <= 12;
+        if (!newValidations.loginId && value.length > 0) {
+          newErrors.loginId = 'Login ID must be 6-12 characters';
+        } else {
+          delete newErrors.loginId;
+        }
+        break;
       case 'password':
         const hasUpper = /[A-Z]/.test(value);
         const hasLower = /[a-z]/.test(value);
@@ -133,20 +142,20 @@ const GlassmorphismAuth = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     try {
       if (isLogin) {
-        // Determine role from email for demo
-        const role = formData.email.includes('admin') ? 'admin' : 
-                    formData.email.includes('accountant') ? 'accountant' : 'contact';
-        login(formData.email, formData.password, role);
+        await login(formData.loginId, formData.password);
       } else {
-        login(formData.email, formData.password, formData.role);
+        await signup({
+          name: formData.name,
+          loginId: formData.loginId,
+          email: formData.email,
+          password: formData.password,
+          reenteredPassword: formData.confirmPassword,
+        });
       }
     } catch (error) {
-      setErrors({ submit: 'Authentication failed. Please try again.' });
+      setErrors({ submit: error.message || 'Authentication failed. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -154,18 +163,19 @@ const GlassmorphismAuth = () => {
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
-    setFormData({ name: '', email: '', password: '', confirmPassword: '', role: '' });
+    setFormData({ name: '', loginId: '', email: '', password: '', confirmPassword: '', role: '' });
     setErrors({});
     setValidations({});
   };
 
   const quickLogin = (role) => {
     setFormData({
+      loginId: `${role}user`,
       email: `${role}@demo.com`,
       password: 'Demo123!@'
     });
-    setTimeout(() => {
-      login(`${role}@demo.com`, 'Demo123!@', role);
+    setTimeout(async () => {
+      try { await login(`${role}user`, 'Demo123!@'); } catch { }
     }, 500);
   };
 
@@ -201,7 +211,7 @@ const GlassmorphismAuth = () => {
           }}
           transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
         />
-        
+
         {/* Floating Particles */}
         {[...Array(20)].map((_, i) => (
           <motion.div
@@ -265,17 +275,16 @@ const GlassmorphismAuth = () => {
             <div className="relative bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl shadow-black/20">
               {/* Gradient Border Effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-3xl blur-sm -z-10" />
-              
+
               {/* Form Toggle */}
               <div className="flex bg-white/5 rounded-2xl p-1 mb-8 backdrop-blur-sm border border-white/10">
                 <motion.button
                   type="button"
                   onClick={() => setIsLogin(true)}
-                  className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${
-                    isLogin 
-                      ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm' 
+                  className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${isLogin
+                      ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm'
                       : 'text-gray-300 hover:text-white'
-                  }`}
+                    }`}
                   whileTap={{ scale: 0.98 }}
                 >
                   <LogIn className="w-4 h-4 inline mr-2" />
@@ -284,11 +293,10 @@ const GlassmorphismAuth = () => {
                 <motion.button
                   type="button"
                   onClick={() => setIsLogin(false)}
-                  className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${
-                    !isLogin 
-                      ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm' 
+                  className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 ${!isLogin
+                      ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm'
                       : 'text-gray-300 hover:text-white'
-                  }`}
+                    }`}
                   whileTap={{ scale: 0.98 }}
                 >
                   <UserPlus className="w-4 h-4 inline mr-2" />
@@ -337,7 +345,7 @@ const GlassmorphismAuth = () => {
                   )}
                 </AnimatePresence>
 
-                {/* Email Field */}
+                {/* Login ID Field */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -345,32 +353,72 @@ const GlassmorphismAuth = () => {
                 >
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
+                      <User className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
+                      type="text"
+                      name="loginId"
+                      value={formData.loginId}
                       onChange={handleInputChange}
-                      placeholder="Email Address"
+                      placeholder="Login ID"
                       className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-300"
                       required
                     />
                     <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                      {validations.email === true && <CheckCircle className="h-5 w-5 text-green-400" />}
-                      {validations.email === false && <XCircle className="h-5 w-5 text-red-400" />}
+                      {validations.loginId === true && <CheckCircle className="h-5 w-5 text-green-400" />}
+                      {validations.loginId === false && <XCircle className="h-5 w-5 text-red-400" />}
                     </div>
                   </div>
-                  {errors.email && (
+                  {errors.loginId && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-red-400 text-sm mt-2 ml-4"
                     >
-                      {errors.email}
+                      {errors.loginId}
                     </motion.p>
                   )}
                 </motion.div>
+
+                {/* Email Field - Sign Up Only */}
+                <AnimatePresence>
+                  {!isLogin && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Mail className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          placeholder="Email Address"
+                          className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-300"
+                          required={!isLogin}
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                          {validations.email === true && <CheckCircle className="h-5 w-5 text-green-400" />}
+                          {validations.email === false && <XCircle className="h-5 w-5 text-red-400" />}
+                        </div>
+                      </div>
+                      {errors.email && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-red-400 text-sm mt-2 ml-4"
+                        >
+                          {errors.email}
+                        </motion.p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Password Field */}
                 <motion.div
@@ -484,11 +532,10 @@ const GlassmorphismAuth = () => {
                               whileHover={{ scale: 1.05, y: -2 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => setFormData(prev => ({ ...prev, role: role.id }))}
-                              className={`p-4 rounded-2xl border-2 transition-all duration-300 backdrop-blur-sm ${
-                                formData.role === role.id
+                              className={`p-4 rounded-2xl border-2 transition-all duration-300 backdrop-blur-sm ${formData.role === role.id
                                   ? `bg-gradient-to-r ${role.gradient} border-white/30 shadow-lg ${role.glow}`
                                   : 'bg-white/5 border-white/20 hover:border-white/30 hover:bg-white/10'
-                              }`}
+                                }`}
                             >
                               <Icon className="w-6 h-6 mx-auto mb-2 text-white" />
                               <p className="text-white text-xs font-medium">{role.name}</p>
