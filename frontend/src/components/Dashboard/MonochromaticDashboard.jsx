@@ -17,7 +17,12 @@ import {
   Package,
   Calculator,
   BarChart3,
-  Building2
+  Building2,
+  ShoppingCart,
+  FileText,
+  Menu,
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import DashboardStats from './DashboardStats';
@@ -30,6 +35,8 @@ import ProductMaster from '../products/ProductMaster';
 import TaxesMaster from '../taxes/TaxesMaster';
 import ChartOfAccounts from '../accounts/ChartOfAccounts';
 import VendorMaster from '../vendors/VendorMaster';
+import PurchaseOrderMaster from '../orders/PurchaseOrderMaster';
+import SalesOrderMaster from '../orders/SalesOrderMaster';
 import {
   mockSalesData,
   mockTransactions,
@@ -47,8 +54,13 @@ const MonochromaticDashboard = () => {
   const [showTaxesMaster, setShowTaxesMaster] = useState(false);
   const [showChartOfAccounts, setShowChartOfAccounts] = useState(false);
   const [showVendorMaster, setShowVendorMaster] = useState(false);
+  const [showPurchaseOrder, setShowPurchaseOrder] = useState(false);
+  const [showSalesOrder, setShowSalesOrder] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeQuickAction, setActiveQuickAction] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeSidebarItem, setActiveSidebarItem] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Debug logging
   console.log('MonochromaticDashboard rendering for user:', user);
@@ -151,6 +163,44 @@ const MonochromaticDashboard = () => {
     }
   }
 
+  // If showing purchase order page
+  if (showPurchaseOrder) {
+    try {
+      return <PurchaseOrderMaster
+        onBack={() => setShowPurchaseOrder(false)}
+        onHome={() => setShowPurchaseOrder(false)}
+      />;
+    } catch (error) {
+      console.error('Error rendering PurchaseOrderMaster:', error);
+      return <div>Error loading Purchase Order</div>;
+    }
+  }
+
+  // If showing sales order page
+  if (showSalesOrder) {
+    try {
+      return (
+        <SalesOrderMaster
+          onBack={() => setShowSalesOrder(false)}
+          onHome={() => {
+            setShowSalesOrder(false);
+            // Reset all other states to go back to main dashboard
+            setShowCreateUser(false);
+            setShowContactMaster(false);
+            setShowProductMaster(false);
+            setShowTaxesMaster(false);
+            setShowChartOfAccounts(false);
+            setShowVendorMaster(false);
+            setShowPurchaseOrder(false);
+          }}
+        />
+      );
+    } catch (error) {
+      console.error('Error rendering SalesOrder:', error);
+      return <div>Error loading Sales Order</div>;
+    }
+  }
+
   const getDashboardTitle = () => {
     switch (user?.role) {
       case 'admin':
@@ -221,147 +271,206 @@ const MonochromaticDashboard = () => {
     }
   };
 
+  const getSidebarItems = () => {
+    if (user?.role === 'admin' || user?.role === 'accountant') {
+      return [
+        { id: 'purchase-order', label: 'Purchase Order', icon: ShoppingCart, color: 'var(--primary)', description: 'Manage purchase orders' },
+        { id: 'sales-order', label: 'Sales Order', icon: FileText, color: 'var(--secondary)', description: 'Manage sales orders' }
+      ];
+    }
+    return [];
+  };
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="min-h-screen bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="shiv-surface shiv-shadow border-b"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Shiv Furnitures
-              </h1>
-              <div className="ml-4 flex items-center space-x-2">
-                <Calendar className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="text-sm border-0 bg-transparent focus:ring-0"
-                  style={{ color: 'var(--text-secondary)' }}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-50"></div>
+          <div className="relative w-full">
+            <div className="flex items-center justify-between h-16 px-6">
+              <div className="flex items-center">
+              {/* Sidebar Toggle Button */}
+              {(user?.role === 'admin' || user?.role === 'accountant') && (
+                <motion.button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="mr-4 p-2 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: sidebarOpen ? 'var(--primary)' : 'var(--border-light)',
+                    color: sidebarOpen ? 'white' : 'var(--text-primary)'
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="90d">Last 90 days</option>
-                  <option value="1y">Last year</option>
-                </select>
-                <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={handleRefresh}
-                disabled={isLoading}
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'var(--border-light)',
-                  color: 'var(--text-primary)'
-                }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--border)'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--border-light)'}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-
-              {/* Admin-only Create User button */}
-              {user?.role === 'admin' && (
-                <button
-                  onClick={() => setShowCreateUser(true)}
-                  className="flex items-center px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                  style={{ backgroundColor: 'var(--primary-light)' }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--primary)'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--primary-light)'}
-                  title="Create New User"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Create User
-                </button>
+                  <Menu className="w-5 h-5" />
+                </motion.button>
               )}
+              <div className="flex items-center space-x-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-white" />
+                </div>
+                <h1 className="text-2xl font-semibold text-gray-900">
+                  Shiv Furnitures
+                </h1>
+              </div>
+              </div>
 
-              <motion.button
-                className="relative p-2 transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onMouseEnter={(e) => e.target.style.color = 'var(--text-secondary)'}
-                onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell className="w-5 h-5" />
-                <motion.span
-                  className="absolute top-0 right-0 w-2 h-2 rounded-full"
-                  style={{ backgroundColor: 'var(--error)' }}
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                ></motion.span>
-                {showNotifications && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-12 w-80 rounded-lg shadow-lg z-50"
-                    style={{
-                      backgroundColor: 'var(--surface)',
-                      border: `1px solid var(--border)`,
-                      boxShadow: '0 8px 24px var(--shadow)'
-                    }}
+              {/* User Menu */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  className="p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors duration-200 group"
+                >
+                  <RefreshCw className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 ${isLoading ? 'animate-spin' : ''}`} />
+                </button>
+
+                <button className="p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors duration-200 relative group">
+                  <Bell className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                </button>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="p-4">
-                      <h4 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Notifications</h4>
-                      <div className="space-y-2">
-                        <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--border-light)' }}>
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>New invoice created</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>2 minutes ago</p>
-                        </div>
-                        <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--border-light)' }}>
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Payment received</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>1 hour ago</p>
-                        </div>
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-medium text-xs">
+                      {user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <span className="font-medium text-gray-700 text-sm max-w-20 truncate">{user?.name?.split(' ')[0] || 'User'}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                        <p className="text-xs text-gray-500">{user?.email}</p>
+                        <span className="inline-block mt-2 px-2.5 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full capitalize">
+                          {user?.role}
+                        </span>
+                      </div>
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            // Add settings functionality here
+                          }}
+                          className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <Settings className="w-4 h-4 mr-3 text-gray-500" />
+                          Settings
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            logout();
+                          }}
+                          className="w-full flex items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4 mr-3" />
+                          Logout
+                        </button>
                       </div>
                     </div>
-                  </motion.div>
-                )}
-              </motion.button>
-
-              <motion.button
-                className="p-2 transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.95 }}
-                onMouseEnter={(e) => e.target.style.color = 'var(--text-secondary)'}
-                onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
-              >
-                <Settings className="w-5 h-5" />
-              </motion.button>
-
-              <motion.button
-                onClick={logout}
-                className="flex items-center px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                style={{ backgroundColor: 'var(--error)' }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--primary-dark)'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--error)'}
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </motion.button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
+
+      {/* Dashboard Header Section */}
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-gray-100">
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="px-6 py-8"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <motion.div 
+                className="flex items-center space-x-4 mb-3"
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+              >
+                <motion.div 
+                  className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <BarChart3 className="w-6 h-6 text-white" />
+                </motion.div>
+                <motion.h1 
+                  className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {getDashboardTitle()}
+                </motion.h1>
+              </motion.div>
+              
+              <motion.p 
+                className="text-lg font-semibold text-gray-700 leading-relaxed"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+                whileHover={{ 
+                  scale: 1.01,
+                  color: '#3B82F6',
+                  transition: { duration: 0.3 }
+                }}
+              >
+                Welcome back, <span className="text-blue-600 font-bold text-xl">{user?.name || 'User'}</span>! 
+                <motion.span 
+                  className="block mt-1 text-gray-600"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  Here's what's happening with your furniture business.
+                </motion.span>
+              </motion.p>
+            </div>
+            
+            <motion.div 
+              className="text-center"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+              whileHover={{ scale: 1.05 }}
+            >
+              <motion.div 
+                className="w-16 h-16 bg-white rounded-xl shadow-lg flex items-center justify-center mb-3 mx-auto"
+                whileHover={{ rotate: 5, scale: 1.1 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Calendar className="w-8 h-8 text-blue-600" />
+              </motion.div>
+              <div className="space-y-1">
+                <p className="text-lg font-bold text-gray-800">
+                  {new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
+                </p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {new Date().getDate()}
+                </p>
+                <p className="text-sm font-semibold text-gray-600">
+                  {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+      </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full py-6">
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 px-6">
           {quickStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -435,7 +544,7 @@ const MonochromaticDashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="shiv-surface rounded-xl p-6 mb-8"
+            className="shiv-surface rounded-xl p-6 mb-6 mx-6"
             style={{
               border: `1px solid var(--border)`,
               boxShadow: '0 4px 12px var(--shadow)'
@@ -488,48 +597,192 @@ const MonochromaticDashboard = () => {
           </motion.div>
         )}
 
-        {/* Welcome Message */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
-        >
-          <div>
-            <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {getDashboardTitle()}
-            </h1>
-            <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>
-              Welcome back, {user?.name || 'User'}! Here's what's happening with your furniture business.
-            </p>
-          </div>
-          <motion.div whileHover={{ scale: 1.05 }} className="text-right">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Current Date</p>
-            <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {new Date().toLocaleDateString('en-IN', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </p>
-          </motion.div>
-        </motion.div>
 
         {/* Dashboard Stats */}
-        <DashboardStats
-          totalInvoice={mockTimeBasedStats.totalInvoice}
-          totalPurchase={mockTimeBasedStats.totalPurchase}
-          totalPayment={mockTimeBasedStats.totalPayment}
-        />
+        <div className="mx-6 mb-6">
+          <DashboardStats
+            totalInvoice={mockTimeBasedStats.totalInvoice}
+            totalPurchase={mockTimeBasedStats.totalPurchase}
+            totalPayment={mockTimeBasedStats.totalPayment}
+          />
+        </div>
 
         {/* Charts */}
         {(user?.role === 'admin' || user?.role === 'accountant') && (
-          <SalesChart data={mockSalesData} />
+          <div className="mx-6 mb-6">
+            <SalesChart data={mockSalesData} />
+          </div>
         )}
 
         {/* Recent Transactions */}
-        <RecentTransactions transactions={mockTransactions} />
+        <div className="mx-6">
+          <RecentTransactions transactions={mockTransactions} />
+        </div>
       </div>
+
+      {/* Interactive Sidebar */}
+      {(user?.role === 'admin' || user?.role === 'accountant') && (
+        <>
+          {/* Sidebar Overlay */}
+          {sidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 z-40"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: -300 }}
+            animate={{ x: sidebarOpen ? 0 : -300 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed left-0 top-0 h-full w-80 z-50 shadow-2xl"
+            style={{
+              backgroundColor: 'var(--surface)',
+              borderRight: `2px solid var(--border)`
+            }}
+          >
+            {/* Sidebar Header */}
+            <div className="p-6 border-b" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                    Order Management
+                  </h2>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Manage your orders efficiently
+                  </p>
+                </div>
+                <motion.button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: 'var(--border-light)',
+                    color: 'var(--text-primary)'
+                  }}
+                  whileHover={{ scale: 1.1, backgroundColor: 'var(--error)' }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <X className="w-5 h-5" />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Sidebar Content */}
+            <div className="p-6 space-y-4">
+              {getSidebarItems().map((item, index) => {
+                const ItemIcon = item.icon;
+                return (
+                  <motion.button
+                    key={item.id}
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="w-full p-4 rounded-xl transition-all duration-300 group relative overflow-hidden"
+                    style={{
+                      backgroundColor: activeSidebarItem === item.id ? 'var(--border-light)' : 'transparent',
+                      border: activeSidebarItem === item.id ? `2px solid ${item.color}` : 'none',
+                      boxShadow: activeSidebarItem === item.id ? `0 8px 24px ${item.color}20` : '0 4px 12px rgba(0,0,0,0.15)'
+                    }}
+                    whileHover={{ 
+                      scale: 1.02,
+                      y: -2,
+                      border: `2px solid ${item.color}`,
+                      boxShadow: `0 12px 32px ${item.color}30`
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    onMouseEnter={() => setActiveSidebarItem(item.id)}
+                    onMouseLeave={() => setActiveSidebarItem(null)}
+                    onClick={() => {
+                      if (item.id === 'purchase-order') setShowPurchaseOrder(true);
+                      if (item.id === 'sales-order') setShowSalesOrder(true);
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    {/* Background Gradient Effect */}
+                    <motion.div
+                      className="absolute inset-0 opacity-10"
+                      style={{
+                        background: `linear-gradient(135deg, ${item.color}, transparent)`
+                      }}
+                      initial={{ scale: 0, rotate: 0 }}
+                      whileHover={{ scale: 1, rotate: 180 }}
+                      transition={{ duration: 0.6 }}
+                    />
+
+                    <div className="relative z-10 flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <motion.div
+                          className="p-3 rounded-xl"
+                          style={{
+                            backgroundColor: item.color + '20',
+                            border: `2px solid ${item.color}30`
+                          }}
+                          whileHover={{ rotate: 10, scale: 1.1 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <ItemIcon className="w-6 h-6" style={{ color: item.color }} />
+                        </motion.div>
+                        <div className="text-left">
+                          <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                            {item.label}
+                          </h3>
+                          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                      <motion.div
+                        whileHover={{ x: 5 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        <ChevronRight className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+                      </motion.div>
+                    </div>
+
+                    {/* Hover Effect Line */}
+                    <motion.div
+                      className="absolute bottom-0 left-0 h-1 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                      initial={{ width: 0 }}
+                      whileHover={{ width: '100%' }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            {/* Sidebar Footer */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="text-center">
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Quick access to order management
+                </p>
+                <motion.div
+                  className="mt-2 h-1 rounded-full mx-auto"
+                  style={{ 
+                    backgroundColor: 'var(--primary)',
+                    width: '60px'
+                  }}
+                  animate={{ 
+                    scaleX: [1, 1.2, 1],
+                    opacity: [0.5, 1, 0.5]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 };
