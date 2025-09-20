@@ -1,0 +1,31 @@
+/* App specific styles */
+.App {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* CSS Variables for Monochromatic Theme */
+:root {
+  --primary: #2c2c2c;
+  --primary-light: #404040;
+  --primary-dark: #1a1a1a;
+  --background: #f8f8f8;
+  --surface: #ffffff;
+  --text-primary: #2c2c2c;
+  --text-secondary: #404040;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --border-light: #f3f4f6;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+}
+
+/* Utility Classes */
+.shiv-primary { background-color: var(--primary); }
+.shiv-surface { background-color: var(--surface); }
+.shiv-text-primary { color: var(--text-primary); }
+.shiv-text-secondary { color: var(--text-secondary); }
+.shiv-border { border-color: var(--border); }
