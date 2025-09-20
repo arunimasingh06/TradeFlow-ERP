@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Calendar, 
-  TrendingUp, 
-  Users, 
+import {
+  Calendar,
+  TrendingUp,
+  Users,
   DollarSign,
   RefreshCw,
   Settings,
@@ -16,7 +16,8 @@ import {
   Contact,
   Package,
   Calculator,
-  BarChart3
+  BarChart3,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import DashboardStats from './DashboardStats';
@@ -25,6 +26,10 @@ import RecentTransactions from './RecentTransactions';
 import ClientPortal from './ClientPortal';
 import CreateUser from '../admin/CreateUser';
 import ContactMaster from '../contacts/ContactMaster';
+import ProductMaster from '../products/ProductMaster';
+import TaxesMaster from '../taxes/TaxesMaster';
+import ChartOfAccounts from '../accounts/ChartOfAccounts';
+import VendorMaster from '../vendors/VendorMaster';
 import {
   mockSalesData,
   mockTransactions,
@@ -38,6 +43,10 @@ const MonochromaticDashboard = () => {
   const [dateRange, setDateRange] = useState('30d');
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showContactMaster, setShowContactMaster] = useState(false);
+  const [showProductMaster, setShowProductMaster] = useState(false);
+  const [showTaxesMaster, setShowTaxesMaster] = useState(false);
+  const [showChartOfAccounts, setShowChartOfAccounts] = useState(false);
+  const [showVendorMaster, setShowVendorMaster] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeQuickAction, setActiveQuickAction] = useState(null);
 
@@ -80,13 +89,65 @@ const MonochromaticDashboard = () => {
   // If showing contact master page
   if (showContactMaster) {
     try {
-      return <ContactMaster 
-        onBack={() => setShowContactMaster(false)} 
+      return <ContactMaster
+        onBack={() => setShowContactMaster(false)}
         onHome={() => setShowContactMaster(false)}
       />;
     } catch (error) {
       console.error('ContactMaster error:', error);
       setShowContactMaster(false);
+    }
+  }
+
+  // If showing product master page
+  if (showProductMaster) {
+    try {
+      return <ProductMaster
+        onBack={() => setShowProductMaster(false)}
+        onHome={() => setShowProductMaster(false)}
+      />;
+    } catch (error) {
+      console.error('ProductMaster error:', error);
+      setShowProductMaster(false);
+    }
+  }
+
+  // If showing taxes master page
+  if (showTaxesMaster) {
+    try {
+      return <TaxesMaster
+        onBack={() => setShowTaxesMaster(false)}
+        onHome={() => setShowTaxesMaster(false)}
+      />;
+    } catch (error) {
+      console.error('TaxesMaster error:', error);
+      setShowTaxesMaster(false);
+    }
+  }
+
+  // If showing chart of accounts page
+  if (showChartOfAccounts) {
+    try {
+      return <ChartOfAccounts
+        onBack={() => setShowChartOfAccounts(false)}
+        onHome={() => setShowChartOfAccounts(false)}
+      />;
+    } catch (error) {
+      console.error('Error rendering ChartOfAccounts:', error);
+      return <div>Error loading Chart of Accounts</div>;
+    }
+  }
+
+  // If showing vendor master page
+  if (showVendorMaster) {
+    try {
+      return <VendorMaster
+        onBack={() => setShowVendorMaster(false)}
+        onHome={() => setShowVendorMaster(false)}
+      />;
+    } catch (error) {
+      console.error('Error rendering VendorMaster:', error);
+      return <div>Error loading Vendor Master</div>;
     }
   }
 
@@ -141,16 +202,18 @@ const MonochromaticDashboard = () => {
     switch (user?.role) {
       case 'admin':
         return [
-          { id: 'contact-master', label: 'Contact Master', icon: Contact, color: 'var(--success)' },
-          { id: 'product-master', label: 'Product Master', icon: Package, color: 'var(--info)' },
-          { id: 'taxes-master', label: 'Taxes Master', icon: Calculator, color: 'var(--warning)' },
+          { id: 'contact-master', label: 'Customer', icon: Contact, color: 'var(--success)' },
+          { id: 'vendor-master', label: 'Vendors', icon: Building2, color: 'var(--purple)' },
+          { id: 'product-master', label: 'Products', icon: Package, color: 'var(--info)' },
+          { id: 'taxes-master', label: 'Taxes', icon: Calculator, color: 'var(--warning)' },
           { id: 'chart-accounts', label: 'Chart of Accountants', icon: BarChart3, color: 'var(--error)' }
         ];
       case 'accountant':
         return [
-          { id: 'contact-master', label: 'Contact Master', icon: Contact, color: 'var(--success)' },
-          { id: 'product-master', label: 'Product Master', icon: Package, color: 'var(--info)' },
-          { id: 'taxes-master', label: 'Taxes Master', icon: Calculator, color: 'var(--warning)' },
+          { id: 'contact-master', label: 'Customer', icon: Contact, color: 'var(--success)' },
+          { id: 'vendor-master', label: 'Vendors', icon: Building2, color: 'var(--purple)' },
+          { id: 'product-master', label: 'Products', icon: Package, color: 'var(--info)' },
+          { id: 'taxes-master', label: 'Taxes', icon: Calculator, color: 'var(--warning)' },
           { id: 'chart-accounts', label: 'Chart of Accountants', icon: BarChart3, color: 'var(--error)' }
         ];
       default:
@@ -159,34 +222,34 @@ const MonochromaticDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{backgroundColor: 'var(--background)'}}>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="shiv-surface shiv-shadow border-b"
-        style={{borderColor: 'var(--border)'}}
+        style={{ borderColor: 'var(--border)' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold" style={{color: 'var(--text-primary)'}}>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 Shiv Furnitures
               </h1>
               <div className="ml-4 flex items-center space-x-2">
-                <Calendar className="w-4 h-4" style={{color: 'var(--text-muted)'}} />
+                <Calendar className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 <select
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value)}
                   className="text-sm border-0 bg-transparent focus:ring-0"
-                  style={{color: 'var(--text-secondary)'}}
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   <option value="7d">Last 7 days</option>
                   <option value="30d">Last 30 days</option>
                   <option value="90d">Last 90 days</option>
                   <option value="1y">Last year</option>
                 </select>
-                <ChevronDown className="w-4 h-4" style={{color: 'var(--text-muted)'}} />
+                <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
               </div>
             </div>
 
@@ -211,7 +274,7 @@ const MonochromaticDashboard = () => {
                 <button
                   onClick={() => setShowCreateUser(true)}
                   className="flex items-center px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                  style={{backgroundColor: 'var(--primary-light)'}}
+                  style={{ backgroundColor: 'var(--primary-light)' }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--primary)'}
                   onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--primary-light)'}
                   title="Create New User"
@@ -220,10 +283,10 @@ const MonochromaticDashboard = () => {
                   Create User
                 </button>
               )}
-              
-              <motion.button 
+
+              <motion.button
                 className="relative p-2 transition-colors"
-                style={{color: 'var(--text-muted)'}}
+                style={{ color: 'var(--text-muted)' }}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onMouseEnter={(e) => e.target.style.color = 'var(--text-secondary)'}
@@ -231,9 +294,9 @@ const MonochromaticDashboard = () => {
                 onClick={() => setShowNotifications(!showNotifications)}
               >
                 <Bell className="w-5 h-5" />
-                <motion.span 
+                <motion.span
                   className="absolute top-0 right-0 w-2 h-2 rounded-full"
-                  style={{backgroundColor: 'var(--error)'}}
+                  style={{ backgroundColor: 'var(--error)' }}
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 ></motion.span>
@@ -265,10 +328,10 @@ const MonochromaticDashboard = () => {
                   </motion.div>
                 )}
               </motion.button>
-              
-              <motion.button 
+
+              <motion.button
                 className="p-2 transition-colors"
-                style={{color: 'var(--text-muted)'}}
+                style={{ color: 'var(--text-muted)' }}
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.95 }}
                 onMouseEnter={(e) => e.target.style.color = 'var(--text-secondary)'}
@@ -280,7 +343,7 @@ const MonochromaticDashboard = () => {
               <motion.button
                 onClick={logout}
                 className="flex items-center px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                style={{backgroundColor: 'var(--error)'}}
+                style={{ backgroundColor: 'var(--error)' }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--primary-dark)'}
@@ -318,19 +381,19 @@ const MonochromaticDashboard = () => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
+                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                       {stat.title}
                     </p>
-                    <motion.p 
-                      className="text-3xl font-bold mb-3" 
-                      style={{color: 'var(--text-primary)'}}
+                    <motion.p
+                      className="text-3xl font-bold mb-3"
+                      style={{ color: 'var(--text-primary)' }}
                       animate={{ scale: [1, 1.05, 1] }}
                       transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
                     >
                       {stat.value}
                     </motion.p>
                     <div className="flex items-center">
-                      <motion.span 
+                      <motion.span
                         className="text-sm font-medium px-2 py-1 rounded-full"
                         style={{
                           color: 'var(--success)',
@@ -340,18 +403,18 @@ const MonochromaticDashboard = () => {
                       >
                         {stat.change}
                       </motion.span>
-                      <span className="text-xs ml-2" style={{color: 'var(--text-muted)'}}>
+                      <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
                         vs last month
                       </span>
                     </div>
                   </div>
-                  <motion.div 
+                  <motion.div
                     className="p-4 rounded-xl relative overflow-hidden"
-                    style={{backgroundColor: 'var(--border-light)'}}
+                    style={{ backgroundColor: 'var(--border-light)' }}
                     whileHover={{ rotate: 10, scale: 1.1 }}
                     transition={{ type: "spring", stiffness: 300 }}
                   >
-                    <Icon className="w-8 h-8 relative z-10" style={{color: 'var(--primary)'}} />
+                    <Icon className="w-8 h-8 relative z-10" style={{ color: 'var(--primary)' }} />
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-br opacity-20"
                       style={{ background: `linear-gradient(135deg, var(--primary), var(--primary-light))` }}
@@ -402,6 +465,10 @@ const MonochromaticDashboard = () => {
                     onClick={() => {
                       if (action.id === 'create-user') setShowCreateUser(true);
                       if (action.id === 'contact-master') setShowContactMaster(true);
+                      if (action.id === 'vendor-master') setShowVendorMaster(true);
+                      if (action.id === 'product-master') setShowProductMaster(true);
+                      if (action.id === 'taxes-master') setShowTaxesMaster(true);
+                      if (action.id === 'chart-accounts') setShowChartOfAccounts(true);
                     }}
                   >
                     <motion.div
@@ -428,16 +495,16 @@ const MonochromaticDashboard = () => {
           className="flex items-center justify-between mb-8"
         >
           <div>
-            <h1 className="text-3xl font-bold" style={{color: 'var(--text-primary)'}}>
+            <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
               {getDashboardTitle()}
             </h1>
-            <p className="mt-2" style={{color: 'var(--text-secondary)'}}>
+            <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>
               Welcome back, {user?.name || 'User'}! Here's what's happening with your furniture business.
             </p>
           </div>
           <motion.div whileHover={{ scale: 1.05 }} className="text-right">
-            <p className="text-sm" style={{color: 'var(--text-muted)'}}>Current Date</p>
-            <p className="text-lg font-semibold" style={{color: 'var(--text-primary)'}}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Current Date</p>
+            <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               {new Date().toLocaleDateString('en-IN', {
                 weekday: 'long',
                 year: 'numeric',
