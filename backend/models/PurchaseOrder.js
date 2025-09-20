@@ -63,7 +63,11 @@ purchaseOrderSchema.pre("save", async function (next) {
     if (item.tax) {
       const taxDoc = await Tax.findById(item.tax).lean();
       if (taxDoc) {
-        taxAmount = (item.unitPrice * item.quantity * taxDoc.percentage) / 100;
+        if (taxDoc.method === 'Percentage') {
+          taxAmount = (item.unitPrice * item.quantity * (taxDoc.value || 0)) / 100;
+        } else if (taxDoc.method === 'Fixed') {
+          taxAmount = taxDoc.value || 0;
+        }
       }
     }
 
