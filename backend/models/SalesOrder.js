@@ -2,70 +2,42 @@ const mongoose = require("mongoose");
 
 const salesOrderSchema = new mongoose.Schema(
   {
+    soNumber: { type: String, required: true, unique: true },
+    soDate: { type: Date, default: Date.now },
+    reference: { type: String, default: null },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Contact",
+      ref: "Customer",
       required: true,
     },
     items: [
       {
-        product: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
-          required: true,
-        },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
-        unitPrice: {
-          type: Number,
-          required: true,
-          min: 0,
-        },
-        tax: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Tax",
-        },
+        product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+        quantity: { type: Number, required: true, min: 1 },
+        unitPrice: { type: Number, required: true, min: 0 },
+        taxRate: { type: Number, default: 0, min: 0 },
       },
     ],
-    status: {
-      type: String,
-      enum: ["Draft", "Invoiced", "Paid"],
-      default: "Draft",
-    },
-    totalAmount: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
-    },
+    status: { type: String, enum: ["draft","confirmed","cancelled"], default: "draft" },
+    totalUntaxedAmount: { type: Number, default: 0 },
+    totalTaxAmount: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
-// Pre-save hook to auto-calculate totalAmount
-salesOrderSchema.pre("save", async function (next) {
-  const Tax = mongoose.model("Tax");
-  this.totalAmount = await this.items.reduce(async (accPromise, item) => {
-    const acc = await accPromise;
-    let taxAmount = 0;
-
-    if (item.tax) {
-      const taxDoc = await Tax.findById(item.tax).lean();
-      if (taxDoc) {
-        if (taxDoc.method === 'Percentage') {
-          taxAmount = (item.unitPrice * item.quantity * (taxDoc.value || 0)) / 100;
-        } else if (taxDoc.method === 'Fixed') {
-          taxAmount = taxDoc.value || 0;
-        }
-      }
-    }
-
-    return acc + item.unitPrice * item.quantity + taxAmount;
-  }, Promise.resolve(0));
-
+salesOrderSchema.pre('save', function(next) {
+  let untaxed = 0;
+  let tax = 0;
+  for (const item of this.items) {
+    const lineUntaxed = (item.unitPrice || 0) * (item.quantity || 0);
+    const lineTax = (lineUntaxed * (item.taxRate || 0)) / 100;
+    untaxed += lineUntaxed;
+    tax += lineTax;
+  }
+  this.totalUntaxedAmount = untaxed;
+  this.totalTaxAmount = tax;
+  this.totalAmount = untaxed + tax;
   next();
 });
 

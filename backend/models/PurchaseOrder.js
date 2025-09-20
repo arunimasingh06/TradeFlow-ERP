@@ -17,7 +17,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     },
     vendor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Contact",
+      ref: "Partner",
       required: true,
     },
 

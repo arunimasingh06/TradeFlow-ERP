@@ -37,4 +37,4 @@ contactSchema.index({ name: 1 });
 contactSchema.index({ email: 1 });
 contactSchema.index({ type: 1, isActive: 1 });
 
-module.exports = mongoose.model("Contact", contactSchema);
+module.exports = mongoose.model("Customer", contactSchema);

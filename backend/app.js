@@ -57,6 +57,9 @@ app.use('/api/master/products', require('./routes/master.products'));
 app.use('/api/master/taxes', require('./routes/master.taxes'));
 app.use('/api/master/coa', require('./routes/master.coa'));
 app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
+app.use('/api/vendor-bills', require('./routes/vendorBills'));
+app.use('/api/payments', require('./routes/payments'));
+app.use('/api/sales-orders', require('./routes/salesOrders'));
 
 app.get('/', (req, res) => {
   res.json({

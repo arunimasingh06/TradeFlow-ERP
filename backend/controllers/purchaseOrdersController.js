@@ -1,14 +1,33 @@
 const PurchaseOrder = require('../models/PurchaseOrder');
 const Product = require('../models/Product');
-const Contact = require('../models/Customer');
+const Partner = require('../models/Partner');
 const VendorBill = require('../models/VendorBills');
 const Counter = require('../models/Counter');
+const CoA = require('../models/CoA');
 
 function parsePagination(req) {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
   const skip = (page - 1) * limit;
   return { page, limit, skip };
+}
+
+async function getNextBillNumber() {
+  const year = new Date().getFullYear();
+  const key = `vb-${year}`;
+  const doc = await Counter.findOneAndUpdate(
+    { key },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true }
+  );
+  const seq = doc.seq || 1;
+  return `Bill/${year}/${String(seq).padStart(4, '0')}`;
+}
+
+async function resolveDefaultAccount() {
+  let acc = await CoA.findOne({ accountName: /Purchase Expense/i });
+  if (!acc) acc = await CoA.findOne({ type: 'Expense' });
+  return acc ? acc._id : null;
 }
 
 async function getNextPONumber() {
@@ -66,7 +85,7 @@ exports.getPO = async (req, res, next) => {
 exports.createPO = async (req, res, next) => {
   try {
     // ensure vendor exists and is vendor/both
-    const vendor = await Contact.findById(req.body.vendor);
+    const vendor = await Partner.findById(req.body.vendor);
     if (!vendor) return res.status(400).json({ message: 'Invalid vendor' });
 
     // Default unitPrice from product if not provided
@@ -136,19 +155,34 @@ exports.cancelPO = async (req, res, next) => {
 // Create Vendor Bill from PO
 exports.createBillFromPO = async (req, res, next) => {
   try {
-    const po = await PurchaseOrder.findById(req.params.id);
+    const po = await PurchaseOrder.findById(req.params.id).populate('items.product', 'hsnCode purchasePrice');
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
     if (po.status !== 'confirmed') return res.status(400).json({ message: 'Only confirmed PO can be billed' });
 
     const invoiceDate = req.body.invoiceDate ? new Date(req.body.invoiceDate) : new Date();
     const dueDate = req.body.dueDate ? new Date(req.body.dueDate) : new Date(Date.now() + 30*24*60*60*1000);
 
+    const billNumber = await getNextBillNumber();
+    const defaultAccountId = await resolveDefaultAccount();
+
+    const items = po.items.map((line) => ({
+      product: line.product?._id || line.product,
+      hsnCode: line.product?.hsnCode || null,
+      account: defaultAccountId,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      taxRate: line.taxRate || 0,
+    }));
+
     const bill = await VendorBill.create({
+      billNumber,
+      reference: req.body.reference || null,
       purchaseOrder: po._id,
       vendor: po.vendor,
       invoiceDate,
       dueDate,
-      totalAmount: po.totalAmount,
+      items,
+      status: 'confirmed',
     });
 
     po.status = 'billed';
