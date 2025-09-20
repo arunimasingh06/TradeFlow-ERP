@@ -7,10 +7,9 @@ require('dotenv').config();
 
 const app = express();
 
-// Security middleware
 app.use(helmet());
 
-// CORS configuration
+
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
@@ -18,7 +17,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rate limiting
+
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
@@ -28,18 +27,18 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Logging middleware
+
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 } else {
   app.use(morgan('combined'));
 }
 
-// Body parsing middleware
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
+
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -49,13 +48,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes will be added here
-// app.use('/api/auth', require('./routes/auth'));
-// app.use('/api/users', require('./routes/users'));
-// app.use('/api/products', require('./routes/products'));
-app.use('/api/reports', require('./routes/reports'));
 
-// Root endpoint
+app.use('/api/reports', require('./routes/reports'));
+app.use('/api/auth', require('./routes/auth'));
+
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to OdooXNmit Backend API',
@@ -72,7 +68,7 @@ app.use('*', (req, res) => {
   });
 });
 
-// Global error handler
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   
