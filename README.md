@@ -52,16 +52,6 @@ Node.js + Express (Backend)
 MySQL (Database)
 
 
-📡 Core API Endpoints (Sample)
-Method	Endpoint	Description
-POST	/api/auth/register	Register new user
-POST	/api/auth/login	User authentication
-POST	/api/contacts	Add customer/vendor
-POST	/api/products	Add new product or service
-POST	/api/sales-order	Create sales order
-POST	/api/purchase-order	Create purchase order
-GET	/api/reports/pnl	Generate Profit & Loss report
-GET	/api/reports/balance-sheet	Generate Balance Sheet
 🌟 Highlights
 
 ✅ Unified platform for accounting, inventory, and reporting
@@ -70,15 +60,12 @@ GET	/api/reports/balance-sheet	Generate Balance Sheet
 ✅ Minimal manual entry — maximum automation
 ✅ Built for modern business digitization
 
+
 📈 Future Enhancements
-
 🧾 Exportable reports (PDF/Excel)
-
 🔔 Smart payment and invoice reminders
-
 🌍 Multi-currency and tax rule support
-
 📱 Responsive mobile-friendly UI
-
 🧠 AI-powered business insights
+
 
