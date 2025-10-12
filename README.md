@@ -32,7 +32,6 @@ It connects every financial process — from sales and purchase orders to paymen
 
 
 🧠 Tech Stack
-Layer	        Technology
 Frontend	React (JSX) + Tailwind CSS
 Backend	        Node.js + Express.js
 Database	MySQL
@@ -63,6 +62,7 @@ MySQL (Database)
 🌍 Multi-currency and tax rule support
 📱 Responsive mobile-friendly UI
 🧠 AI-powered business insights
+
 
 
 
