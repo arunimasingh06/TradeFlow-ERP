@@ -42,13 +42,9 @@ Version Control	Git + GitHub
 
 🏗️ System Architecture
 React (JSX Frontend)
-
         ↓ REST APIs
-        
 Node.js + Express (Backend)
-
-        ↓ SQL Queries / ORM
-        
+        ↓ SQL Queries / ORM   
 MySQL (Database)
 
 
@@ -67,5 +63,6 @@ MySQL (Database)
 🌍 Multi-currency and tax rule support
 📱 Responsive mobile-friendly UI
 🧠 AI-powered business insights
+
 
 
