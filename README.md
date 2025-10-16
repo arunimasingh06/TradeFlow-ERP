@@ -1,4 +1,4 @@
-🧾 TradeFlow-ERP
+TradeFlow-ERP
 
 A Cloud-Based Accounting and Inventory Management System
 
@@ -62,6 +62,7 @@ MySQL (Database)
 🌍 Multi-currency and tax rule support
 📱 Responsive mobile-friendly UI
 🧠 AI-powered business insights
+
 
 
 
