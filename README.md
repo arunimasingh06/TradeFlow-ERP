@@ -1,6 +1,6 @@
 TradeFlow-ERP
 
-A Cloud-Based Accounting and Inventory Management System
+A Cloud-Based Accounting and Inventory Management System.
 
 TradeFlow-ERP is a modular ERP solution designed to automate accounting, invoicing, and inventory workflows for small and medium-scale enterprises.
 It connects every financial process — from sales and purchase orders to payments and reports — within a single, streamlined dashboard.
@@ -62,6 +62,7 @@ MySQL (Database)
 🌍 Multi-currency and tax rule support
 📱 Responsive mobile-friendly UI
 🧠 AI-powered business insights
+
 
 
 
